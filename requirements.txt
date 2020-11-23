@@ -1,4 +1,3 @@
-service-identity==18.1.0
 txJSON_RPC==0.5
 pyln-client==0.8.2
 bech32==1.2.0
