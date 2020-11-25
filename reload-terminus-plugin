@@ -6,30 +6,27 @@
 import os
 import sys
 import subprocess
+import argparse
 import shutil
 
-PLUGIN_DIR = os.path.join(os.path.expanduser("~"), ".lightning/plugins")
-
-if not os.path.exists(PLUGIN_DIR):
-    sys.exit("does not exist: %s" % PLUGIN_DIR)
-
-print(PLUGIN_DIR)
-
-PLUGIN_NAME = os.path.join(PLUGIN_DIR, "terminus-plugin")
-
-print(PLUGIN_NAME)
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+STUFF_TO_COPY = ["terminus", "terminus-plugin"]
 
-print("src_dir: %s" % SRC_DIR)
+DEFAULT = os.path.join(os.path.expanduser("~"), ".lightning/plugins")
+
+PLUGIN_DIR_HELP = "C-Lightning plugin directory (default: %s)" % DEFAULT
+parser = argparse.ArgumentParser(prog="install-terminus-plugin")
+parser.add_argument('-p', '--plugin-dir', type=str, default=DEFAULT,
+                    help=PLUGIN_DIR_HELP)
+s = parser.parse_args()
+PLUGIN_NAME = os.path.join(DEFAULT, "terminus-plugin")
 
 r = subprocess.call(["lightning-cli", "plugin", "stop", PLUGIN_NAME])
 print(r)
 
-STUFF_TO_COPY = ["moneysocket", "terminus", "utl", "terminus-plugin"]
-
 for item in STUFF_TO_COPY:
-    dst_path = os.path.join(PLUGIN_DIR, item)
+    dst_path = os.path.join(DEFAULT, item)
     src_path = os.path.join(SRC_DIR, item)
     print("src: %s  dst: %s" % (src_path, dst_path))
     if os.path.isdir(src_path):
