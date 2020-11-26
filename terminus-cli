@@ -5,6 +5,7 @@
 
 import os
 import sys
+import argparse
 from configparser import ConfigParser
 
 from twisted.internet import reactor
@@ -12,10 +13,38 @@ from txjsonrpc.web.jsonrpc import Proxy
 
 from terminus.cmd_parse import TerminusCmdParse
 
-CONFIG_FILE = os.path.join(os.path.expanduser("~"),
-                           ".lightning/bitcoin/moneysocket-terminus.conf")
-if not os.path.exists(CONFIG_FILE):
-    sys.exit("*** could not find %s" % CONFIG_FILE)
+CL_CONFIG_FILE = os.path.join(os.path.expanduser("~"),
+                              ".lightning/bitcoin/moneysocket-terminus.conf")
+
+LND_CONFIG_FILE = os.path.join(os.path.expanduser("~"),
+                               ".lnd/moneysocket-terminus.conf")
+
+cl_exists = os.path.exists(CL_CONFIG_FILE)
+lnd_exists = os.path.exists(LND_CONFIG_FILE)
+
+
+CONFIG_FILE_HELP = """ Configuration settings to app run instance with. """
+
+parser = TerminusCmdParse.get_parser()
+if len(sys.argv) == 1:
+    parser.print_help()
+    sys.exit(-1)
+
+
+parser.add_argument('-c', '--config', type=str,
+                    default=None, help=CONFIG_FILE_HELP)
+parsed = parser.parse_args()
+
+if parsed.config and not os.path.exists(parsed.config):
+    sys.exit("*** can't use config: %s" % parsed.config)
+elif not (cl_exists or lnd_exists):
+    sys.exit("*** could not find %s or %s" % (CL_CONFIG_FILE,
+                                              LND_CONFIG_FILE))
+
+
+CONFIG_FILE = (parsed.config if
+               (parsed.config and os.path.exists(parsed.config)) else
+               (CL_CONFIG_FILE if cl_exists else LND_CONFIG_FILE))
 
 config = ConfigParser()
 config.read(CONFIG_FILE)
@@ -36,14 +65,9 @@ def shutDown(data):
 
 proxy = Proxy(URL)
 
-parser = TerminusCmdParse.get_parser()
-if len(sys.argv) == 1:
-    parser.print_help()
-    sys.exit(-1)
 
-parsed = parser.parse_args()
-
-cmd = sys.argv[1]
-d = proxy.callRemote(cmd, sys.argv[2:])
+cmd = sys.argv[3] if parsed.config else sys.argv[1]
+remainder = sys.argv[4:] if parsed.config else sys.argv[2:]
+d = proxy.callRemote(cmd, remainder)
 d.addCallback(printValue).addErrback(printError).addBoth(shutDown)
 reactor.run()

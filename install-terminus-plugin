@@ -5,10 +5,8 @@
 
 import os
 import sys
-import subprocess
 import argparse
 import shutil
-
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 STUFF_TO_COPY = ["terminus", "terminus-plugin"]
@@ -20,15 +18,14 @@ parser = argparse.ArgumentParser(prog="install-terminus-plugin")
 parser.add_argument('-p', '--plugin-dir', type=str, default=DEFAULT,
                     help=PLUGIN_DIR_HELP)
 s = parser.parse_args()
-PLUGIN_NAME = os.path.join(DEFAULT, "terminus-plugin")
 
-r = subprocess.call(["lightning-cli", "plugin", "stop", PLUGIN_NAME])
-print(r)
+if not os.path.exists(s.plugin_dir):
+    sys.exit("does not exist: %s" % s.plugin_dir)
 
 for item in STUFF_TO_COPY:
-    dst_path = os.path.join(DEFAULT, item)
+    dst_path = os.path.join(s.plugin_dir, item)
     src_path = os.path.join(SRC_DIR, item)
-    print("src: %s  dst: %s" % (src_path, dst_path))
+    print("copying: %s  to: %s" % (src_path, dst_path))
     if os.path.isdir(src_path):
         if os.path.exists(dst_path):
             shutil.rmtree(dst_path)
@@ -38,6 +35,3 @@ for item in STUFF_TO_COPY:
             os.remove(dst_path)
         shutil.copyfile(src_path, dst_path)
         shutil.copymode(src_path, dst_path)
-
-r = subprocess.call(["lightning-cli", "plugin", "start", PLUGIN_NAME])
-print(r)
