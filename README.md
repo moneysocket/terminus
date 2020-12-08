@@ -49,9 +49,9 @@ The script [install-terminus-plugin](install-terminus-plugin) will copy it from 
 
 When C-Lightning is restarted it will execute this plugin, however it will need to be able to find the configuration file. By default it will look in the `.lightning/` directory under the folder corresponding to the network. The default configuration file is `moneysocket-terminus.conf`, but it can be specified differently by setting the `moneysocket_terminus_config` value of the C-Lightning configuration.
 
-There is an example configuration provided [here](config/terminus-cl.conf) which can be copied to the default location like so:
+There is an example configuration provided [here](config/terminus-cl.conf) which can be copied to the default location and filename like so:
 
-`$ cp config/terminus-cl.conf ~/.lightning/bitcoin/`
+`$ cp config/terminus-cl.conf ~/.lightning/bitcoin/moneysocket-terminus.conf`
 
 Reloading C-Lightning Plugin
 ------------------------------------------------------------------------
