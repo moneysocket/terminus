@@ -29,6 +29,7 @@ class TerminusLayer(Layer):
         self.send_layer_event(terminus_nexus, "NEXUS_ANNOUNCED")
         if self.onannounce:
             self.onannounce(terminus_nexus)
+        self._track_nexus_announced(terminus_nexus)
 
         shared_seed = terminus_nexus.get_shared_seed()
         if shared_seed not in self.nexuses_by_shared_seed:
