@@ -42,6 +42,11 @@ class TerminusApp(object):
         self.connect_loop = None
         self.prune_loop = None
 
+        self.local_seeds_connecting = set()
+        self.local_seeds_connected = set()
+        self.local_seeds_disconnected = set()
+        self.local_seeds = set()
+
     ###########################################################################
 
     def setup_terminus_stack(self):
@@ -57,15 +62,49 @@ class TerminusApp(object):
     ###########################################################################
 
     def on_announce(self, terminus_nexus):
+        #print("ANNOUNCED: %s" % terminus_nexus)
         # TODO - register for messages and log errors if we get any not handled
         # by the stack?
-        pass
+        ss = terminus_nexus.get_shared_seed()
+        if self.is_local_seed(ss):
+            self.set_local_seed_connected(ss)
 
     def on_revoke(self, terminus_nexus):
-        pass
+        #print("REVOKED: %s" % terminus_nexus)
+        ss = terminus_nexus.get_shared_seed()
+        if self.is_local_seed(ss):
+            self.set_local_seed_disconnected(ss)
 
     def on_stack_event(self, layer_name, nexus, status):
+        #print("layer: %s   status: %s" % (layer_name, status))
         pass
+
+    ###########################################################################
+
+    def set_local_seed_connecting(self, shared_seed):
+        self.local_seeds.add(shared_seed)
+        self.local_seeds_connecting.add(shared_seed)
+
+    def set_local_seed_connected(self, shared_seed):
+        self.local_seeds_disconnected.discard(shared_seed)
+        self.local_seeds_connecting.discard(shared_seed)
+        self.local_seeds_connected.add(shared_seed)
+
+    def set_local_seed_disconnected(self, shared_seed):
+        self.local_seeds_connecting.discard(shared_seed)
+        self.local_seeds_connected.discard(shared_seed)
+        self.local_seeds_disconnected.add(shared_seed)
+
+    def clear_local_seed(self, shared_seed):
+        self.local_seeds.discard(shared_seed)
+        self.local_seeds_disconnected.discard(shared_seed)
+
+    def is_local_seed(self, shared_seed):
+        return shared_seed in self.local_seeds
+
+    def is_local_seed_disconnected(self, shared_seed):
+        return (self.is_local_seed(shared_seed) and
+                shared_seed in self.local_seeds_disconnected)
 
     ###########################################################################
 
@@ -242,6 +281,7 @@ class TerminusApp(object):
         account.add_shared_seed(shared_seed)
         # register shared seed with local listener
         self.terminus_stack.local_connect(shared_seed)
+        self.set_local_seed_connecting(shared_seed)
         self.directory.reindex_account(account)
         return "listening: %s to %s" % (name, beacon)
 
@@ -265,6 +305,7 @@ class TerminusApp(object):
         # deregister from local layer
         for shared_seed in account.get_shared_seeds():
             self.terminus_stack.local_disconnect(shared_seed)
+            self.clear_local_seed(shared_seed)
             account.remove_shared_seed(shared_seed)
         self.directory.reindex_account(account)
         return "cleared connections for %s" % (args.account)
@@ -283,6 +324,7 @@ class TerminusApp(object):
                 account.add_connection_attempt(beacon, connection_attempt)
             for shared_seed in account.get_shared_seeds():
                 self.terminus_stack.local_connect(shared_seed)
+                self.set_local_seed_connecting(shared_seed)
 
     ##########################################################################
 
@@ -297,6 +339,10 @@ class TerminusApp(object):
                 connection_attempt = self.terminus_stack.connect(location,
                                                                  shared_seed)
                 account.add_connection_attempt(beacon, connection_attempt)
+        for shared_seed in self.local_seeds:
+            if self.is_local_seed_disconnected(shared_seed):
+                self.terminus_stack.local_connect(shared_seed)
+                self.set_local_seed_connecting(shared_seed)
 
     def prune_expired_pending(self):
         for account in self.directory.iter_accounts():
