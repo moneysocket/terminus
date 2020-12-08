@@ -43,6 +43,8 @@ class TerminusStack(object):
         l.handleinvoicerequest = self.terminus_handle_invoice_request
         l.handlepayrequest = self.terminus_handle_pay_request
         l.handleproviderinforequest = self.terminus_handle_provider_info_request
+        l.onannounce = self.announce_nexus
+        l.onrevoke = self.revoke_nexus
         return l
 
     def setup_provider_layer(self, below_layer):
