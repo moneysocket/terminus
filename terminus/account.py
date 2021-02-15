@@ -38,9 +38,27 @@ class Account(object):
             yield "\t\tincoming shared seed: %s" % str(shared_seed)
             yield "\t\t\tincoming beacon: %s" % beacon.to_bech32_str()
 
-
     def summary_string(self, locations):
         return "\n".join(self.iter_summary_lines(locations))
+
+    def get_attributes(self, locations):
+        outgoing_beacons = []
+        for beacon in self.db.get_beacons():
+            beacon_str = beacon.to_bech32_str()
+            outgoing_beacons.append(beacon_str)
+        incoming_beacons = []
+        for shared_seed in self.db.get_shared_seeds():
+            beacon = MoneysocketBeacon(shared_seed)
+            for location in locations:
+                beacon.add_location(location)
+            beacon_str = beacon.to_bech32_str()
+            incoming_beacons.append(beacon_str)
+        info = {'name':             self.db.get_name(),
+                'wad':              self.db.get_wad(),
+                'outgoing_beacons': outgoing_beacons,
+                'incoming_beacons': incoming_beacons}
+        return info
+
 
     ##########################################################################
 

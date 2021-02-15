@@ -19,6 +19,13 @@ class TerminusCmdParse():
         if app:
             parser_getinfo.set_defaults(cmd_func=app.getinfo)
 
+        parser_getaccountinfo = subparsers.add_parser('getaccountinfo',
+            help='get info about a specific set of accounts')
+        parser_getaccountinfo.add_argument("accounts", type=str, nargs='*',
+                                    help="account names to filter results")
+        if app:
+            parser_getaccountinfo.set_defaults(cmd_func=app.getaccountinfo)
+
 
         parser_create = subparsers.add_parser("create")
         parser_create.add_argument("msatoshis", type=str,

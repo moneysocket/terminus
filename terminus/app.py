@@ -181,17 +181,33 @@ class TerminusApp(object):
 
     ##########################################################################
 
-    def _iter_getinfo_lines(self):
+    def _getinfo_dict(self):
         locations = self.terminus_stack.get_listen_locations()
         accounts = self.directory.get_account_list()
-        yield "ACCOUNTS:"
-        if len(accounts) == 0:
-            yield "\t(none)"
-        for account in accounts:
-            yield "%s" % (account.summary_string(locations))
+        info = {'accounts': [a.get_attributes(locations) for a in accounts]}
+        return info
+
+    #def _iter_getinfo_lines(self):
+    #    locations = self.terminus_stack.get_listen_locations()
+    #    accounts = self.directory.get_account_list()
+    #    yield "ACCOUNTS:"
+    #    if len(accounts) == 0:
+    #        yield "\t(none)"
+    #    for account in accounts:
+    #        yield "%s" % (account.summary_string(locations))
 
     def getinfo(self, args):
-        return "\n".join(self._iter_getinfo_lines())
+        return self._getinfo_dict()
+
+    ##########################################################################
+
+    def getaccountinfo(self, args):
+        account_set = set(args.accounts)
+        all_accounts = self._getinfo_dict()['accounts']
+        if len(account_set) == 0:
+            return {'accounts': all_accounts}
+        accounts = [a for a in all_accounts if a['name'] in account_set]
+        return {'accounts': accounts}
 
     ##########################################################################
 
