@@ -19,6 +19,7 @@ from moneysocket.wad.wad import Wad
 EMPTY_DB = {'account_name':  "",
             'account_uuid':  "",
             'wad':           None,
+            'cap':           None,
             'pending':       {},
             'shared_seeds':  [],
             'beacons':       []}
@@ -36,6 +37,7 @@ class AccountDb(object):
         logging.info("using account db: %s" % self.filename)
         self.db = self.read_json(self.filename)
         self.db['wad'] = Wad.from_dict(self.db['wad'])
+        self.db['cap'] = Wad.from_dict(self.db['cap'])
 
     ###########################################################################
 
@@ -171,6 +173,15 @@ class AccountDb(object):
         current_wad = self.get_wad()
         new_wad = Wad.bitcoin(current_wad['msats'] + wad['msats'])
         self.set_wad(new_wad)
+
+    ###########################################################################
+
+    def set_cap(self, wad):
+        self.db['cap'] = cap
+        self.persist()
+
+    def get_cap(self):
+        return self.db['cap']
 
     ###########################################################################
 

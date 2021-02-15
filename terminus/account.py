@@ -55,6 +55,7 @@ class Account(object):
             incoming_beacons.append(beacon_str)
         info = {'name':             self.db.get_name(),
                 'wad':              self.db.get_wad(),
+                'cap':              self.db.get_cap(),
                 'outgoing_beacons': outgoing_beacons,
                 'incoming_beacons': incoming_beacons}
         return info
@@ -95,8 +96,14 @@ class Account(object):
     def set_wad(self, wad):
         self.db.set_wad(wad)
 
+    def set_cap(self, wad):
+        self.db.set_cap(wad)
+
     def get_wad(self):
         return self.db.get_wad()
+
+    def get_cap(self):
+        return self.db.get_cap()
 
     def add_wad(self, wad):
         self.db.add_wad(wad)

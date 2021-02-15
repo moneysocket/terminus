@@ -187,15 +187,6 @@ class TerminusApp(object):
         info = {'accounts': [a.get_attributes(locations) for a in accounts]}
         return info
 
-    #def _iter_getinfo_lines(self):
-    #    locations = self.terminus_stack.get_listen_locations()
-    #    accounts = self.directory.get_account_list()
-    #    yield "ACCOUNTS:"
-    #    if len(accounts) == 0:
-    #        yield "\t(none)"
-    #    for account in accounts:
-    #        yield "%s" % (account.summary_string(locations))
-
     def getinfo(self, args):
         return self._getinfo_dict()
 
@@ -211,10 +202,10 @@ class TerminusApp(object):
 
     ##########################################################################
 
-    def gen_account_name(self):
+    def gen_account_name(self, name):
         i = 0
         def account_name(n):
-            return "account-%d" % n
+            return "%s-%d" % (name, n)
         while self.directory.lookup_by_name(account_name(i)) is not None:
             i += 1
         return account_name(i)
@@ -223,13 +214,17 @@ class TerminusApp(object):
     def create(self, args):
         wad, err = Wad.bitcoin_from_msat_string(args.msatoshis)
         if err:
-            return "*** " + err
+            return {'created': False, "error": "*** " + err}
 
-        name = self.gen_account_name()
+        cap, err = Wad.bitcoin_from_msat_string(args.cap)
+        if err:
+            return {'created': False, "error": "*** " + err}
+        name = self.gen_account_name(args.account_name)
         account = Account(name)
         account.set_wad(wad)
+        account.set_cap(cap)
         self.directory.add_account(account)
-        return "created account: %s  wad: %s" % (name, wad)
+        return {'created': True, 'name': name, "wad": wad, 'cap': cap}
 
     ##########################################################################
 

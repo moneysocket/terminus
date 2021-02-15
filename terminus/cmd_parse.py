@@ -30,6 +30,11 @@ class TerminusCmdParse():
         parser_create = subparsers.add_parser("create")
         parser_create.add_argument("msatoshis", type=str,
                                    help="spending amount in account")
+        parser_create.add_argument("-a", "--account-name", type=str,
+                                   default="account",
+                                   help="account name base string")
+        parser_create.add_argument("-c", "--cap", type=str, default="0",
+                                   help="cap deposit balance at given msatoshis")
         if app:
             parser_create.set_defaults(cmd_func=app.create)
 
