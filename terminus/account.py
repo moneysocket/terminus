@@ -151,3 +151,6 @@ class Account(object):
                 'payee':         True,
                 'wad':           self.db.get_wad(),
                 'account_uuid':  self.db.get_account_uuid()}
+
+    def get_receipts(self):
+        return self.db.get_receipts()

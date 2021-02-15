@@ -202,6 +202,17 @@ class TerminusApp(object):
 
     ##########################################################################
 
+    def getaccountreceipts(self, args):
+        name = args.account
+        account = self.directory.lookup_by_name(name)
+        if not account:
+            return "*** unknown account: %s" % name
+        receipts = account.get_receipts()
+        return {'name':     name,
+                'receipts': receipts}
+
+    ##########################################################################
+
     def gen_account_name(self, name):
         i = 0
         def account_name(n):
@@ -216,9 +227,12 @@ class TerminusApp(object):
         if err:
             return {'created': False, "error": "*** " + err}
 
-        cap, err = Wad.bitcoin_from_msat_string(args.cap)
-        if err:
-            return {'created': False, "error": "*** " + err}
+        if args.cap == "none":
+            cap = Wad.bitcoin(0)
+        else:
+            cap, err = Wad.bitcoin_from_msat_string(args.cap)
+            if err:
+                return {'created': False, "error": "*** " + err}
         name = self.gen_account_name(args.account_name)
         account = Account(name)
         account.set_wad(wad)

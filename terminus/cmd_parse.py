@@ -26,6 +26,13 @@ class TerminusCmdParse():
         if app:
             parser_getaccountinfo.set_defaults(cmd_func=app.getaccountinfo)
 
+        parser_getaccountreceipts = subparsers.add_parser('getaccountreceipts',
+            help='get the transaction receipts of a specific account')
+        parser_getaccountreceipts.add_argument("account", type=str,
+                                               help="account name")
+        if app:
+            parser_getaccountreceipts.set_defaults(
+                cmd_func=app.getaccountreceipts)
 
         parser_create = subparsers.add_parser("create")
         parser_create.add_argument("msatoshis", type=str,
@@ -33,7 +40,7 @@ class TerminusCmdParse():
         parser_create.add_argument("-a", "--account-name", type=str,
                                    default="account",
                                    help="account name base string")
-        parser_create.add_argument("-c", "--cap", type=str, default="0",
+        parser_create.add_argument("-c", "--cap", type=str, default="none",
                                    help="cap deposit balance at given msatoshis")
         if app:
             parser_create.set_defaults(cmd_func=app.create)

@@ -22,7 +22,8 @@ EMPTY_DB = {'account_name':  "",
             'cap':           None,
             'pending':       {},
             'shared_seeds':  [],
-            'beacons':       []}
+            'beacons':       [],
+            'receipts':      []}
 
 class AccountDb(object):
     PERSIST_DIR = None
@@ -176,12 +177,17 @@ class AccountDb(object):
 
     ###########################################################################
 
-    def set_cap(self, wad):
+    def set_cap(self, cap):
         self.db['cap'] = cap
         self.persist()
 
     def get_cap(self):
         return self.db['cap']
+
+    ###########################################################################
+
+    def get_receipts(self):
+        return self.db['receipts']
 
     ###########################################################################
 

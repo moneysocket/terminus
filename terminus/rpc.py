@@ -34,8 +34,10 @@ class TerminusRpc(jsonrpc.JSONRPC):
         return self.exec_cmd('getinfo', args)
 
     def jsonrpc_getaccountinfo(self, *args):
-        print(args)
         return self.exec_cmd('getaccountinfo', args)
+
+    def jsonrpc_getaccountreceipts(self, *args):
+        return self.exec_cmd('getaccountreceipts', args)
 
     def jsonrpc_create(self, argv):
         return self.exec_cmd('create', argv)
