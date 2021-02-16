@@ -5,8 +5,11 @@
 import logging
 
 from moneysocket.beacon.beacon import MoneysocketBeacon
+from moneysocket.utl.bolt11 import Bolt11
+from moneysocket.wad.wad import Wad
 
 from terminus.account_db import AccountDb
+from terminus.receipts import SocketSessionReceipt
 
 class Account(object):
     def __init__(self, name, db=None):
@@ -152,5 +155,44 @@ class Account(object):
                 'wad':           self.db.get_wad(),
                 'account_uuid':  self.db.get_account_uuid()}
 
+    ##########################################################################
+
     def get_receipts(self):
         return self.db.get_receipts()
+
+    def new_session(self, shared_seed):
+        self.db.new_receipt_session(shared_seed)
+        entry = SocketSessionReceipt.session_start_entry()
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_invoice_requested(self, shared_seed, msats):
+        wad = Wad.bitcoin(msats)
+        entry = SocketSessionReceipt.invoice_request_entry(wad)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_pay_requested(self, shared_seed, bolt11):
+        msats = Bolt11.get_msats(bolt11)
+        wad = Wad.bitcoin(msats)
+        entry = SocketSessionReceipt.pay_request_entry(bolt11, wad)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_preimage_notified(self, shared_seed, preimage, increment,
+                                  msats):
+        wad = Wad.bitcoin(msats)
+        entry = SocketSessionReceipt.preimage_notified_entry(preimage,
+                                                             increment, wad)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+
+    def session_invoice_notified(self, shared_seed, bolt11):
+        entry = SocketSessionReceipt.invoice_notified_entry(bolt11)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_error_notified(self, shared_seed, error):
+        entry = SocketSessionReceipt.err_notified_entry(error)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def end_session(self, shared_seed):
+        entry = SocketSessionReceipt.session_end_entry()
+        self.db.add_receipt_entry(shared_seed, entry)
+        self.db.end_receipt_session(shared_seed)

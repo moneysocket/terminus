@@ -65,15 +65,25 @@ class TerminusApp(object):
         #print("ANNOUNCED: %s" % terminus_nexus)
         # TODO - register for messages and log errors if we get any not handled
         # by the stack?
+
+
         ss = terminus_nexus.get_shared_seed()
         if self.is_local_seed(ss):
             self.set_local_seed_connected(ss)
+
+        account = self.directory.lookup_by_seed(ss)
+        assert account is not None, "shared seed not from known account?"
+        account.new_session(ss)
 
     def on_revoke(self, terminus_nexus):
         #print("REVOKED: %s" % terminus_nexus)
         ss = terminus_nexus.get_shared_seed()
         if self.is_local_seed(ss):
             self.set_local_seed_disconnected(ss)
+
+        account = self.directory.lookup_by_seed(ss)
+        assert account is not None, "shared seed not from known account?"
+        account.end_session(ss)
 
     def on_stack_event(self, layer_name, nexus, status):
         #print("layer: %s   status: %s" % (layer_name, status))
@@ -127,6 +137,7 @@ class TerminusApp(object):
         if msats > wad['msats']:
             return # msatoshi balance exceeded
 
+        account.session_pay_requested(shared_seed, bolt11)
         # TODO handle failure
         preimage, paid_msats = self.lightning.pay_invoice(bolt11)
 
@@ -137,6 +148,9 @@ class TerminusApp(object):
         shared_seeds = account.get_all_shared_seeds()
         # TODO pay preimage
         self.terminus_stack.notify_preimage(shared_seeds, preimage)
+        for ss in shared_seeds:
+            account.session_preimage_notified(ss, preimage, False,
+                                              paid_msats)
 
     def terminus_handle_invoice_request(self, shared_seed, msats):
         # TODO - this should be a request-> callback to allow for an
@@ -146,9 +160,11 @@ class TerminusApp(object):
         assert account is not None, "shared seed not from known account?"
 
         # TODO handle failure
+        account.session_invoice_requested(shared_seed, msats)
         bolt11 = self.lightning.get_invoice(msats)
         payment_hash = Bolt11.get_payment_hash(bolt11)
         account.add_pending(payment_hash, bolt11)
+        account.session_invoice_notified(shared_seed, bolt11)
         self.directory.reindex_account(account)
         return {'bolt11': bolt11}
 
@@ -178,6 +194,8 @@ class TerminusApp(object):
         account.remove_pending(payment_hash)
         account.add_wad(received_wad)
         self.terminus_stack.notify_preimage(shared_seeds, preimage)
+        for ss in shared_seeds:
+            account.session_preimage_notified(ss, preimage, True, msats)
 
     ##########################################################################
 
