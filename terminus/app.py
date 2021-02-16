@@ -243,20 +243,20 @@ class TerminusApp(object):
     def create(self, args):
         wad, err = Wad.bitcoin_from_msat_string(args.msatoshis)
         if err:
-            return {'created': False, "error": "*** " + err}
+            return {'success': False, "error": "*** " + err}
 
         if args.cap == "none":
             cap = Wad.bitcoin(0)
         else:
             cap, err = Wad.bitcoin_from_msat_string(args.cap)
             if err:
-                return {'created': False, "error": "*** " + err}
+                return {'success': False, "error": "*** " + err}
         name = self.gen_account_name(args.account_name)
         account = Account(name)
         account.set_wad(wad)
         account.set_cap(cap)
         self.directory.add_account(account)
-        return {'created': True, 'name': name, "wad": wad, 'cap': cap}
+        return {'success': True, 'name': name, "wad": wad, 'cap': cap}
 
     ##########################################################################
 
@@ -264,14 +264,16 @@ class TerminusApp(object):
         name = args.account
         account = self.directory.lookup_by_name(name)
         if not account:
-            return "*** unknown account: %s" % name
+            return {'success': False,
+                    'error': "*** unknown account: %s" % name}
 
         if len(account.get_all_shared_seeds()) > 0:
-            return "*** still has connections: %s" % name
+            return {'success': False,
+                    'error': "*** still has connections: %s" % name}
 
         self.directory.remove_account(account)
         account.depersist()
-        return "removed: %s" % name
+        return {'success': True, "name": name}
 
     ##########################################################################
 
@@ -279,23 +281,26 @@ class TerminusApp(object):
         name = args.account
         account = self.directory.lookup_by_name(name)
         if not account:
-            return "*** unknown account: %s" % name
+            return {'success': False,
+                    'error': "*** unknown account: %s" % name}
 
         beacon_str = args.beacon
 
         beacon, err = MoneysocketBeacon.from_bech32_str(beacon_str)
         if err:
-            return "*** could not decode beacon: %s" % err
+            return {'success': False,
+                    'error': "*** could not decode beacon: %s" % err}
         location = beacon.locations[0]
         if location.to_dict()['type'] != "WebSocket":
-            return "*** can't connect to beacon location"
+            return {'success': False,
+                    'error': "*** can't connect to beacon location"}
 
         shared_seed = beacon.shared_seed
         connection_attempt = self.terminus_stack.connect(location, shared_seed)
         account.add_connection_attempt(beacon, connection_attempt)
         account.add_beacon(beacon)
         self.directory.reindex_account(account)
-        return "connected: %s to %s" % (name, str(location))
+        return {'success': True, "name": name, "location": str(location)}
 
 
     ##########################################################################
@@ -304,14 +309,16 @@ class TerminusApp(object):
         name = args.account
         account = self.directory.lookup_by_name(name)
         if not account:
-            return "*** unknown account: %s" % name
+            return {'success': False,
+                    'error': "*** unknown account: %s" % name}
 
         shared_seed_str = args.shared_seed
         if shared_seed_str:
             shared_seed = SharedSeed.from_hex_str(shared_seed_str)
             if not shared_seed:
-                return ("*** could not understand shared seed: %s" %
-                        args.shared_seed)
+                return {'success': False,
+                        'error': ("*** could not understand shared seed: %s" %
+                                  args.shared_seed)}
             beacon = MoneysocketBeacon(shared_seed)
         else:
             # generate a shared_seed
@@ -326,7 +333,8 @@ class TerminusApp(object):
         self.terminus_stack.local_connect(shared_seed)
         self.set_local_seed_connecting(shared_seed)
         self.directory.reindex_account(account)
-        return "listening: %s to %s" % (name, beacon)
+        return {'success': True, "name": name,
+                "beacon": beacon.to_bech32_str()}
 
     ##########################################################################
 
@@ -334,7 +342,8 @@ class TerminusApp(object):
         name = args.account
         account = self.directory.lookup_by_name(name)
         if not account:
-            return "*** unknown account: %s" % name
+            return {'success': False,
+                    'error': "*** unknown account: %s" % name}
 
         # TODO - cli for more precice removal of connection?
 
@@ -351,7 +360,7 @@ class TerminusApp(object):
             self.clear_local_seed(shared_seed)
             account.remove_shared_seed(shared_seed)
         self.directory.reindex_account(account)
-        return "cleared connections for %s" % (args.account)
+        return {'success': True, "name": name}
 
     ##########################################################################
 
