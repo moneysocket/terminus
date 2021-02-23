@@ -15,13 +15,21 @@ class TerminusRpc(jsonrpc.JSONRPC):
         #print("name: %s" % name)
         toparse = [name]
         for a in args:
+            #print("arg: %s " % str(a))
             if isinstance(a, str):
+                #print("1")
                 toparse.extend(a)
-            if isinstance(a, list):
+            elif isinstance(a, list):
+                #print("2")
                 toparse += a
-            if isinstance(a, tuple):
+            elif isinstance(a, tuple):
+                #print("3")
                 for t in a:
-                    toparse += t
+                    #print("4")
+                    if isinstance(t, list):
+                        toparse += t
+                    else:
+                        toparse += [t]
         #toparse.extend(list(args))
         #print("toparse: %s" % toparse)
         parsed = parser.parse_args(toparse)
@@ -39,17 +47,17 @@ class TerminusRpc(jsonrpc.JSONRPC):
     def jsonrpc_getaccountreceipts(self, *args):
         return self.exec_cmd('getaccountreceipts', args)
 
-    def jsonrpc_create(self, argv):
-        return self.exec_cmd('create', argv)
+    def jsonrpc_create(self, *args):
+        return self.exec_cmd('create', args)
 
-    def jsonrpc_rm(self, argv):
-        return self.exec_cmd('rm', argv)
+    def jsonrpc_rm(self, *args):
+        return self.exec_cmd('rm', args)
 
-    def jsonrpc_connect(self, argv):
-        return self.exec_cmd('connect', argv)
+    def jsonrpc_connect(self, *args):
+        return self.exec_cmd('connect', args)
 
-    def jsonrpc_listen(self, argv):
-        return self.exec_cmd('listen', argv)
+    def jsonrpc_listen(self, *args):
+        return self.exec_cmd('listen', args)
 
-    def jsonrpc_clear(self, argv):
-        return self.exec_cmd('clear', argv)
+    def jsonrpc_clear(self, *args):
+        return self.exec_cmd('clear', args)
