@@ -25,6 +25,8 @@ from terminus.account_db import AccountDb
 from terminus.directory import TerminusDirectory
 from terminus.stack import TerminusStack
 
+MAX_BEACONS = 3
+
 
 class TerminusApp(object):
     def __init__(self, config, lightning):
@@ -214,9 +216,9 @@ class TerminusApp(object):
         account_set = set(args.accounts)
         all_accounts = self._getinfo_dict()['accounts']
         if len(account_set) == 0:
-            return {'accounts': all_accounts}
+            return {'success': True, 'accounts': all_accounts}
         accounts = [a for a in all_accounts if a['name'] in account_set]
-        return {'accounts': accounts}
+        return {'success': True, 'accounts': accounts}
 
     ##########################################################################
 
@@ -224,9 +226,10 @@ class TerminusApp(object):
         name = args.account
         account = self.directory.lookup_by_name(name)
         if not account:
-            return "*** unknown account: %s" % name
+            return {'success': False, error: "*** unknown account: %s" % name}
         receipts = account.get_receipts()
-        return {'name':     name,
+        return {'success':  True,
+                'name':     name,
                 'receipts': receipts}
 
     ##########################################################################
@@ -285,7 +288,6 @@ class TerminusApp(object):
                     'error': "*** unknown account: %s" % name}
 
         beacon_str = args.beacon
-
         beacon, err = MoneysocketBeacon.from_bech32_str(beacon_str)
         if err:
             return {'success': False,
@@ -294,6 +296,9 @@ class TerminusApp(object):
         if location.to_dict()['type'] != "WebSocket":
             return {'success': False,
                     'error': "*** can't connect to beacon location"}
+        if len(account.get_beacons()) == MAX_BEACONS:
+            return {'success': False,
+                    'error': "*** max %s beacons per account" % MAX_BEACONS}
 
         shared_seed = beacon.shared_seed
         connection_attempt = self.terminus_stack.connect(location, shared_seed)
