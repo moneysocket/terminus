@@ -214,9 +214,9 @@ class TerminusApp(object):
 
     def getaccountinfo(self, args):
         account_set = set(args.accounts)
-        all_accounts = self._getinfo_dict()['accounts']
         if len(account_set) == 0:
-            return {'success': True, 'accounts': all_accounts}
+            return {'success': True, 'accounts': []}
+        all_accounts = self._getinfo_dict()['accounts']
         accounts = [a for a in all_accounts if a['name'] in account_set]
         return {'success': True, 'accounts': accounts}
 
