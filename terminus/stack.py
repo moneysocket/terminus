@@ -94,6 +94,10 @@ class TerminusStack(object):
     def notify_preimage(self, shared_seeds, preimage):
         self.terminus_layer.notify_preimage(shared_seeds, preimage)
 
+    def notify_error(self, shared_seeds, error, request_reference_uuid=None):
+        self.terminus_layer.notify_error(shared_seeds, error,
+            request_reference_uuid=request_reference_uuid)
+
     ###########################################################################
 
     def terminus_handle_provider_info_request(self, shared_seed):

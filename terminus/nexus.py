@@ -10,6 +10,7 @@ from moneysocket.nexus.nexus import Nexus
 from moneysocket.message.notification.preimage import NotifyPreimage
 from moneysocket.message.notification.invoice import NotifyInvoice
 from moneysocket.message.notification.provider import NotifyProvider
+from moneysocket.message.notification.error import NotifyError
 
 class TerminusNexus(Nexus):
     def __init__(self, below_nexus, layer):
@@ -55,9 +56,14 @@ class TerminusNexus(Nexus):
                            request_reference_uuid=request_reference_uuid)
         self.send(m)
 
+    def notify_error(self, error, request_reference_uuid=None):
+        m = NotifyError(error, request_reference_uuid=request_reference_uuid)
+        self.send(m)
+
     def notify_provider_info(self, shared_seed):
         assert self.handleproviderinforequest
         pi = self.handleproviderinforequest(shared_seed);
         m = NotifyProvider(pi['account_uuid'], payer=pi['payer'],
                            payee=pi['payee'], wad=pi['wad'])
         self.send(m)
+

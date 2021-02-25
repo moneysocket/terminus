@@ -43,9 +43,6 @@ class TerminusLayer(Layer):
         self.nexuses_by_shared_seed[shared_seed].remove(terminus_nexus.uuid)
 
     def notify_preimage(self, shared_seeds, preimage):
-        # TODO figure out what nexus matches shared seed
-        # have it pass along notify preimage
-
         for shared_seed in shared_seeds:
             if shared_seed not in self.nexuses_by_shared_seed:
                 continue
@@ -53,6 +50,15 @@ class TerminusLayer(Layer):
                 nexus = self.nexuses[nexus_uuid]
                 nexus.notify_preimage(preimage)
                 nexus.notify_provider_info(shared_seed)
+
+    def notify_error(self, shared_seeds, error, request_reference_uuid=None):
+        for shared_seed in shared_seeds:
+            if shared_seed not in self.nexuses_by_shared_seed:
+                continue
+            for nexus_uuid in self.nexuses_by_shared_seed[shared_seed]:
+                nexus = self.nexuses[nexus_uuid]
+                nexus.notify_error(error,
+                    request_reference_uuid=request_reference_uuid)
 
     def handle_pay_request(self, shared_seed, bolt11):
         assert self.handlepayrequest
