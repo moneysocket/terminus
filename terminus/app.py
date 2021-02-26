@@ -16,14 +16,15 @@ from moneysocket.utl.bolt11 import Bolt11
 
 from moneysocket.beacon.beacon import MoneysocketBeacon
 from moneysocket.beacon.shared_seed import SharedSeed
-from moneysocket.stack.incoming import IncomingStack
+from moneysocket.stack.bidirectional_provider import (
+    BidirectionalProviderStack)
 from moneysocket.wad.wad import Wad
 
 from terminus.rpc import TerminusRpc
 from terminus.account import Account
 from terminus.account_db import AccountDb
 from terminus.directory import TerminusDirectory
-from terminus.stack import TerminusStack
+
 
 MAX_BEACONS = 3
 
@@ -37,7 +38,7 @@ class TerminusApp(object):
         AccountDb.PERSIST_DIR = self.config['App']['AccountPersistDir']
 
         self.directory = TerminusDirectory()
-        self.terminus_stack = self.setup_terminus_stack()
+        self.provider_stack = self.setup_provider_stack()
 
         TerminusRpc.APP = self
 
@@ -51,35 +52,31 @@ class TerminusApp(object):
 
     ###########################################################################
 
-    def setup_terminus_stack(self):
-        s = TerminusStack(self.config)
+    def setup_provider_stack(self):
+        s = BidirectionalProviderStack(self.config)
         s.onannounce = self.on_announce
         s.onrevoke = self.on_revoke
         s.onstackevent = self.on_stack_event
         s.handleproviderinforequest = self.handle_provider_info_request
-        s.handleinvoicerequest = self.terminus_handle_invoice_request
-        s.handlepayrequest = self.terminus_handle_pay_request
+        s.handleinvoicerequest = self.handle_invoice_request
+        s.handlepayrequest = self.handle_pay_request
         return s
 
     ###########################################################################
 
-    def on_announce(self, terminus_nexus):
-        #print("ANNOUNCED: %s" % terminus_nexus)
-        # TODO - register for messages and log errors if we get any not handled
-        # by the stack?
-
-
-        ss = terminus_nexus.get_shared_seed()
+    def on_announce(self, transact_nexus):
+        print("ON ANNOUNCE")
+        ss = transact_nexus.get_shared_seed()
         if self.is_local_seed(ss):
             self.set_local_seed_connected(ss)
 
         account = self.directory.lookup_by_seed(ss)
         assert account is not None, "shared seed not from known account?"
+        print("announce seed: %s" % ss)
         account.new_session(ss)
 
-    def on_revoke(self, terminus_nexus):
-        #print("REVOKED: %s" % terminus_nexus)
-        ss = terminus_nexus.get_shared_seed()
+    def on_revoke(self, transact_nexus):
+        ss = transact_nexus.get_shared_seed()
         if self.is_local_seed(ss):
             self.set_local_seed_disconnected(ss)
 
@@ -127,10 +124,8 @@ class TerminusApp(object):
 
     ###########################################################################
 
-    def terminus_handle_pay_request(self, shared_seed, bolt11):
-        # TODO - this should be a request-> callback to allow for an
-        # asynchronous call to the daemon.
-
+    def handle_pay_request(self, nexus, bolt11, request_uuid):
+        shared_seed = nexus.get_shared_seed()
         account = self.directory.lookup_by_seed(shared_seed)
         assert account is not None, "shared seed not from known account?"
 
@@ -149,26 +144,29 @@ class TerminusApp(object):
 
         shared_seeds = account.get_all_shared_seeds()
         # TODO pay preimage
-        self.terminus_stack.notify_preimage(shared_seeds, preimage)
+        self.provider_stack.notify_preimage(shared_seeds, preimage,
+                                            request_uuid)
         for ss in shared_seeds:
             account.session_preimage_notified(ss, preimage, False,
                                               paid_msats)
 
-    def terminus_handle_invoice_request(self, shared_seed, msats):
-        # TODO - this should be a request-> callback to allow for an
-        # asynchronous call to the daemon.
-
+    def handle_invoice_request(self, nexus, msats, request_uuid):
+        shared_seed = nexus.get_shared_seed()
         account = self.directory.lookup_by_seed(shared_seed)
         assert account is not None, "shared seed not from known account?"
 
-        # TODO handle failure
+        print("invoicf req seed: %s" % shared_seed)
         account.session_invoice_requested(shared_seed, msats)
         bolt11 = self.lightning.get_invoice(msats)
         payment_hash = Bolt11.get_payment_hash(bolt11)
         account.add_pending(payment_hash, bolt11)
-        account.session_invoice_notified(shared_seed, bolt11)
+
+        shared_seeds = account.get_all_shared_seeds()
+        for ss in shared_seeds:
+            account.session_invoice_notified(shared_seed, bolt11)
         self.directory.reindex_account(account)
-        return {'bolt11': bolt11}
+
+        self.provider_stack.notify_invoice(shared_seeds, bolt11, request_uuid)
 
 
     ###########################################################################
@@ -195,14 +193,14 @@ class TerminusApp(object):
         shared_seeds = account.get_all_shared_seeds()
         account.remove_pending(payment_hash)
         account.add_wad(received_wad)
-        self.terminus_stack.notify_preimage(shared_seeds, preimage)
+        self.provider_stack.notify_preimage(shared_seeds, preimage, None)
         for ss in shared_seeds:
             account.session_preimage_notified(ss, preimage, True, msats)
 
     ##########################################################################
 
     def _getinfo_dict(self):
-        locations = self.terminus_stack.get_listen_locations()
+        locations = self.provider_stack.get_listen_locations()
         accounts = self.directory.get_account_list()
         info = {'accounts': [a.get_attributes(locations) for a in accounts]}
         return info
@@ -301,7 +299,7 @@ class TerminusApp(object):
                     'error': "*** max %s beacons per account" % MAX_BEACONS}
 
         shared_seed = beacon.shared_seed
-        connection_attempt = self.terminus_stack.connect(location, shared_seed)
+        connection_attempt = self.provider_stack.connect(location, shared_seed)
         account.add_connection_attempt(beacon, connection_attempt)
         account.add_beacon(beacon)
         self.directory.reindex_account(account)
@@ -331,11 +329,11 @@ class TerminusApp(object):
             shared_seed = beacon.shared_seed
 
         # generate new beacon
-        # location is the terminus_stack's incoming websocket
-        beacon.locations = self.terminus_stack.get_listen_locations()
+        # location is the provider_stack's incoming websocket
+        beacon.locations = self.provider_stack.get_listen_locations()
         account.add_shared_seed(shared_seed)
         # register shared seed with local listener
-        self.terminus_stack.local_connect(shared_seed)
+        self.provider_stack.local_connect(shared_seed)
         self.set_local_seed_connecting(shared_seed)
         self.directory.reindex_account(account)
         return {'success': True, "name": name,
@@ -356,12 +354,12 @@ class TerminusApp(object):
         # initiate close to disconnect
         for beacon in account.get_beacons():
             shared_seed = beacon.get_shared_seed()
-            self.terminus_stack.disconnect(shared_seed)
+            self.provider_stack.disconnect(shared_seed)
             account.remove_beacon(beacon)
 
         # deregister from local layer
         for shared_seed in account.get_shared_seeds():
-            self.terminus_stack.local_disconnect(shared_seed)
+            self.provider_stack.local_disconnect(shared_seed)
             self.clear_local_seed(shared_seed)
             account.remove_shared_seed(shared_seed)
         self.directory.reindex_account(account)
@@ -376,11 +374,11 @@ class TerminusApp(object):
                 location = beacon.locations[0]
                 assert location.to_dict()['type'] == "WebSocket"
                 shared_seed = beacon.shared_seed
-                connection_attempt = self.terminus_stack.connect(location,
+                connection_attempt = self.provider_stack.connect(location,
                                                                  shared_seed)
                 account.add_connection_attempt(beacon, connection_attempt)
             for shared_seed in account.get_shared_seeds():
-                self.terminus_stack.local_connect(shared_seed)
+                self.provider_stack.local_connect(shared_seed)
                 self.set_local_seed_connecting(shared_seed)
 
     ##########################################################################
@@ -393,12 +391,12 @@ class TerminusApp(object):
                 location = beacon.locations[0]
                 assert location.to_dict()['type'] == "WebSocket"
                 shared_seed = beacon.shared_seed
-                connection_attempt = self.terminus_stack.connect(location,
+                connection_attempt = self.provider_stack.connect(location,
                                                                  shared_seed)
                 account.add_connection_attempt(beacon, connection_attempt)
         for shared_seed in self.local_seeds:
             if self.is_local_seed_disconnected(shared_seed):
-                self.terminus_stack.local_connect(shared_seed)
+                self.provider_stack.local_connect(shared_seed)
                 self.set_local_seed_connecting(shared_seed)
 
     def prune_expired_pending(self):
@@ -416,7 +414,7 @@ class TerminusApp(object):
 
         self.load_persisted()
 
-        self.terminus_stack.listen()
+        self.provider_stack.listen()
 
         self.connect_loop = LoopingCall(self.retry_connections)
         self.connect_loop.start(5, now=False)
