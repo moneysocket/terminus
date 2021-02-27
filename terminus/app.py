@@ -224,7 +224,7 @@ class TerminusApp(object):
         name = args.account
         account = self.directory.lookup_by_name(name)
         if not account:
-            return {'success': False, error: "*** unknown account: %s" % name}
+            return {'success': False, 'error': "*** unknown account: %s" % name}
         receipts = account.get_receipts()
         return {'success':  True,
                 'name':     name,
