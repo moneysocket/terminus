@@ -117,33 +117,57 @@ class TerminusApp(object):
 
     ###########################################################################
 
+    def provider_error(self, shared_seeds, error_msg, request_reference_uuid):
+        print("provider error: %s" % error_msg)
+        self.provider_stack.notify_error(shared_seeds, error_msg,
+                request_reference_uuid=request_reference_uuid)
+
     def handle_provider_info_request(self, shared_seed):
         account = self.directory.lookup_by_seed(shared_seed)
         assert account is not None, "shared seed not from known account?"
         return account.get_provider_info()
 
-    ###########################################################################
 
     def handle_pay_request(self, nexus, bolt11, request_uuid):
         shared_seed = nexus.get_shared_seed()
         account = self.directory.lookup_by_seed(shared_seed)
         assert account is not None, "shared seed not from known account?"
 
+        shared_seeds = account.get_all_shared_seeds()
+
         msats = Bolt11.get_msats(bolt11)
+        if (msats is None):
+            err = "bolt11 does not specify amount",
+            account.session_error_notified(shared_seed, err)
+            self.provider_error(shared_seeds, err, request_uuid)
+            return
+
         wad = account.get_wad()
         if msats > wad['msats']:
-            return # msatoshi balance exceeded
+            # TODO - estimate routing fees?
+            err = "account balance exceeded",
+            account.session_error_notified(shared_seed, err)
+            self.provider_error(shared_seeds, err, request_uuid)
+            return
 
         account.session_pay_requested(shared_seed, bolt11)
-        # TODO handle failure
-        preimage, paid_msats = self.lightning.pay_invoice(bolt11)
+
+        preimage, paid_msats, err = self.lightning.pay_invoice(bolt11)
+        if err:
+            account.session_error_notified(shared_seed, err)
+            self.provider_error(shared_seeds, err, request_uuid)
+            return
+
 
         paid_wad = Wad.bitcoin(paid_msats)
 
+        if (paid_msats > wad['msats']):
+            # routing fees could have exceeded balance... need to figure
+            # out the best way to deal with this
+            paid_msats = wad['msats']
         account.subtract_wad(paid_wad)
 
-        shared_seeds = account.get_all_shared_seeds()
-        # TODO pay preimage
+        # TODO new pay preimage message to propagate fees
         self.provider_stack.notify_preimage(shared_seeds, preimage,
                                             request_uuid)
         for ss in shared_seeds:
@@ -154,18 +178,30 @@ class TerminusApp(object):
         shared_seed = nexus.get_shared_seed()
         account = self.directory.lookup_by_seed(shared_seed)
         assert account is not None, "shared seed not from known account?"
-
-        print("invoicf req seed: %s" % shared_seed)
+        shared_seeds = account.get_all_shared_seeds()
         account.session_invoice_requested(shared_seed, msats)
-        bolt11 = self.lightning.get_invoice(msats)
+
+
+        wad = account.get_wad()
+        cap = account.get_cap()
+        if cap['msats'] != 0 and (msats + wad['msats'] > cap['msats']):
+            # TODO 0 track pending incoming?
+            err = "account cap exceeded"
+            account.session_error_notified(shared_seed, err)
+            self.provider_error(shared_seeds, err, request_uuid)
+            return
+
+        bolt11, err = self.lightning.get_invoice(msats)
+        if err:
+            account.session_error_notified(shared_seed, err)
+            self.provider_error(shared_seeds, err, request_uuid)
+            return
+
         payment_hash = Bolt11.get_payment_hash(bolt11)
         account.add_pending(payment_hash, bolt11)
-
-        shared_seeds = account.get_all_shared_seeds()
         for ss in shared_seeds:
             account.session_invoice_notified(shared_seed, bolt11)
         self.directory.reindex_account(account)
-
         self.provider_stack.notify_invoice(shared_seeds, bolt11, request_uuid)
 
 
@@ -184,6 +220,7 @@ class TerminusApp(object):
                           "a preimage collision yet")
             # TODO deal with this somehow - feed preimage back into lightning
             # node to claim any pending htlcs?
+            return
 
         if len(accounts) == 0:
             logging.error("incoming payment not known")
