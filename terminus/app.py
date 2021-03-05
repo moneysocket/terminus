@@ -145,19 +145,19 @@ class TerminusApp(object):
         wad = account.get_wad()
         if msats > wad['msats']:
             # TODO - estimate routing fees?
-            err = "account balance exceeded",
+            err = "insufficent account balance"
             account.session_error_notified(shared_seed, err)
             self.provider_error(shared_seeds, err, request_uuid)
             return
 
         account.session_pay_requested(shared_seed, bolt11)
 
-        preimage, paid_msats, err = self.lightning.pay_invoice(bolt11)
+        preimage, paid_msats, err = self.lightning.pay_invoice(bolt11,
+                                                               request_uuid)
         if err:
             account.session_error_notified(shared_seed, err)
             self.provider_error(shared_seeds, err, request_uuid)
             return
-
 
         paid_wad = Wad.bitcoin(paid_msats)
 
