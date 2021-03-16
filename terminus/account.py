@@ -56,11 +56,14 @@ class Account(object):
                 beacon.add_location(location)
             beacon_str = beacon.to_bech32_str()
             incoming_beacons.append(beacon_str)
-        info = {'name':             self.db.get_name(),
-                'wad':              self.db.get_wad(),
-                'cap':              self.db.get_cap(),
-                'outgoing_beacons': outgoing_beacons,
-                'incoming_beacons': incoming_beacons}
+        connection_attempts = {b: str(ca) for b, ca in
+                               self.connection_attempts.items()}
+        info = {'name':                self.db.get_name(),
+                'wad':                 self.db.get_wad(),
+                'cap':                 self.db.get_cap(),
+                'outgoing_beacons':    outgoing_beacons,
+                'incoming_beacons':    incoming_beacons,
+                'connection_attempts': connection_attempts}
         return info
 
 

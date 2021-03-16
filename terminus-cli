@@ -5,6 +5,7 @@
 
 import os
 import sys
+import json
 import argparse
 from configparser import ConfigParser
 
@@ -12,6 +13,7 @@ from twisted.internet import reactor
 from txjsonrpc.web.jsonrpc import Proxy
 
 from terminus.cmd_parse import TerminusCmdParse
+from moneysocket.wad.wad import Wad
 
 CL_CONFIG_FILE = os.path.join(os.path.expanduser("~"),
                               ".lightning/bitcoin/moneysocket-terminus.conf")
@@ -54,8 +56,46 @@ rpc_port = int(config['Rpc']['ExternalPort'])
 
 URL = "http://%s:%d" % (rpc_interface, rpc_port)
 
-def printValue(value):
-    print(value)
+
+def fmt_getinfo(json_resp):
+    #print(json_resp)
+    s = []
+    r = json.loads(json_resp)
+    s += ["ACCOUNTS:"]
+    for a in r['accounts']:
+        w = Wad.from_dict(a['wad'])
+        c = Wad.from_dict(a['cap'])
+        s += ["\t%8s: wad: %20s  cap: %20s" % (a['name'], w, c)]
+        s += ["\t\tincoming beacons:"]
+        cas = a['connection_attempts']
+        for i in a['incoming_beacons']:
+            s += ["\t\t\t%s" % i]
+        s += ["\t\toutgoing beacons:"]
+        for o in a['outgoing_beacons']:
+            s += ["\t\t\t%s" % o]
+            if o in cas:
+                s += ["\t\t\t\t%s" % cas[o]]
+        s += [""]
+    return "\n".join(s)
+
+def fmt_create(json_resp):
+    s = []
+    r = json.loads(json_resp)
+    w = Wad.from_dict(r['wad'])
+    c = Wad.from_dict(r['cap'])
+    s += ["success: %s" % r['success']]
+    s += ["account name: %s" % r['name']]
+    s += ["wad: %s" % w]
+    s += ["cap: %s" % c]
+    return "\n".join(s)
+
+def printValue(value, cmd):
+    if cmd == "getinfo":
+        print(fmt_getinfo(value))
+    elif cmd == "create":
+        print(fmt_create(value))
+    else:
+        print(value)
 
 def printError(error):
     print("*** - %s" % error.getErrorMessage())
@@ -69,5 +109,5 @@ proxy = Proxy(URL)
 cmd = sys.argv[3] if parsed.config else sys.argv[1]
 remainder = sys.argv[4:] if parsed.config else sys.argv[2:]
 d = proxy.callRemote(cmd, remainder)
-d.addCallback(printValue).addErrback(printError).addBoth(shutDown)
+d.addCallback(printValue, cmd).addErrback(printError).addBoth(shutDown)
 reactor.run()
