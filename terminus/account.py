@@ -5,8 +5,11 @@
 import logging
 
 from moneysocket.beacon.beacon import MoneysocketBeacon
+from moneysocket.utl.bolt11 import Bolt11
+from moneysocket.wad.wad import Wad
 
 from terminus.account_db import AccountDb
+from terminus.receipts import SocketSessionReceipt
 
 class Account(object):
     def __init__(self, name, db=None):
@@ -38,9 +41,28 @@ class Account(object):
             yield "\t\tincoming shared seed: %s" % str(shared_seed)
             yield "\t\t\tincoming beacon: %s" % beacon.to_bech32_str()
 
-
     def summary_string(self, locations):
         return "\n".join(self.iter_summary_lines(locations))
+
+    def get_attributes(self, locations):
+        outgoing_beacons = []
+        for beacon in self.db.get_beacons():
+            beacon_str = beacon.to_bech32_str()
+            outgoing_beacons.append(beacon_str)
+        incoming_beacons = []
+        for shared_seed in self.db.get_shared_seeds():
+            beacon = MoneysocketBeacon(shared_seed)
+            for location in locations:
+                beacon.add_location(location)
+            beacon_str = beacon.to_bech32_str()
+            incoming_beacons.append(beacon_str)
+        info = {'name':             self.db.get_name(),
+                'wad':              self.db.get_wad(),
+                'cap':              self.db.get_cap(),
+                'outgoing_beacons': outgoing_beacons,
+                'incoming_beacons': incoming_beacons}
+        return info
+
 
     ##########################################################################
 
@@ -77,8 +99,14 @@ class Account(object):
     def set_wad(self, wad):
         self.db.set_wad(wad)
 
+    def set_cap(self, wad):
+        self.db.set_cap(wad)
+
     def get_wad(self):
         return self.db.get_wad()
+
+    def get_cap(self):
+        return self.db.get_cap()
 
     def add_wad(self, wad):
         self.db.add_wad(wad)
@@ -126,3 +154,45 @@ class Account(object):
                 'payee':         True,
                 'wad':           self.db.get_wad(),
                 'account_uuid':  self.db.get_account_uuid()}
+
+    ##########################################################################
+
+    def get_receipts(self):
+        return self.db.get_receipts()
+
+    def new_session(self, shared_seed):
+        self.db.new_receipt_session(shared_seed)
+        entry = SocketSessionReceipt.session_start_entry()
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_invoice_requested(self, shared_seed, msats):
+        wad = Wad.bitcoin(msats)
+        entry = SocketSessionReceipt.invoice_request_entry(wad)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_pay_requested(self, shared_seed, bolt11):
+        msats = Bolt11.get_msats(bolt11)
+        wad = Wad.bitcoin(msats)
+        entry = SocketSessionReceipt.pay_request_entry(bolt11, wad)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_preimage_notified(self, shared_seed, preimage, increment,
+                                  msats):
+        wad = Wad.bitcoin(msats)
+        entry = SocketSessionReceipt.preimage_notified_entry(preimage,
+                                                             increment, wad)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+
+    def session_invoice_notified(self, shared_seed, bolt11):
+        entry = SocketSessionReceipt.invoice_notified_entry(bolt11)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def session_error_notified(self, shared_seed, error):
+        entry = SocketSessionReceipt.err_notified_entry(error)
+        self.db.add_receipt_entry(shared_seed, entry)
+
+    def end_session(self, shared_seed):
+        entry = SocketSessionReceipt.session_end_entry()
+        self.db.add_receipt_entry(shared_seed, entry)
+        self.db.end_receipt_session(shared_seed)

@@ -19,9 +19,11 @@ from moneysocket.wad.wad import Wad
 EMPTY_DB = {'account_name':  "",
             'account_uuid':  "",
             'wad':           None,
+            'cap':           None,
             'pending':       {},
             'shared_seeds':  [],
-            'beacons':       []}
+            'beacons':       [],
+            'receipts':      []}
 
 class AccountDb(object):
     PERSIST_DIR = None
@@ -36,6 +38,12 @@ class AccountDb(object):
         logging.info("using account db: %s" % self.filename)
         self.db = self.read_json(self.filename)
         self.db['wad'] = Wad.from_dict(self.db['wad'])
+        self.db['cap'] = Wad.from_dict(self.db['cap'])
+        for session in self.db['receipts']:
+            for entry in session:
+                if 'wad' in entry:
+                    entry['wad'] = Wad.from_dict(entry['wad'])
+        self.session_index = {}
 
     ###########################################################################
 
@@ -171,6 +179,37 @@ class AccountDb(object):
         current_wad = self.get_wad()
         new_wad = Wad.bitcoin(current_wad['msats'] + wad['msats'])
         self.set_wad(new_wad)
+
+    ###########################################################################
+
+    def set_cap(self, cap):
+        self.db['cap'] = cap
+        self.persist()
+
+    def get_cap(self):
+        return self.db['cap']
+
+    ###########################################################################
+
+    def get_receipts(self):
+        return self.db['receipts']
+
+    def new_receipt_session(self, shared_seed):
+        session = []
+        self.db['receipts'].insert(0, session)
+        self.session_index[shared_seed] = session
+
+    def add_receipt_entry(self, shared_seed, entry):
+        assert shared_seed in self.session_index, "unknown shared seed?"
+        session = self.session_index[shared_seed]
+        session.insert(0, entry)
+        # TODO - this is gonna be slow for big receipt logs
+        # can fix by implementing append-to-end log
+        self.persist()
+
+    def end_receipt_session(self, shared_seed):
+        assert shared_seed in self.session_index, "unknown shared seed?"
+        del self.session_index[shared_seed]
 
     ###########################################################################
 
