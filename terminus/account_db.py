@@ -200,7 +200,9 @@ class AccountDb(object):
         self.session_index[shared_seed] = session
 
     def add_receipt_entry(self, shared_seed, entry):
-        assert shared_seed in self.session_index, "unknown shared seed?"
+        if not shared_seed in self.session_index:
+            logging.info("not keeping receipt: %s %s" % (shared_seed, entry))
+            return
         session = self.session_index[shared_seed]
         session.insert(0, entry)
         # TODO - this is gonna be slow for big receipt logs
