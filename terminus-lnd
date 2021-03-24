@@ -8,6 +8,7 @@ import time
 import json
 import argparse
 import logging
+import datetime
 
 from configparser import ConfigParser
 
@@ -16,6 +17,7 @@ from twisted.internet import reactor
 from lnd_grpc import Client
 
 from moneysocket.lightning.lnd import Lnd
+from terminus.log_setup import setup_logging
 from terminus.app import TerminusApp
 
 
@@ -43,7 +45,9 @@ if not os.path.exists(settings.config):
 config = ConfigParser()
 config.read(settings.config)
 
-logging.basicConfig(level=logging.DEBUG)
+now = datetime.datetime.now().strftime("%y%m%d-%H.%M.%S")
+logfile = os.path.join(config['App']['LogDir'], "terminus-%s.log" % now)
+setup_logging(logfile, "terminus", min_level=logging.INFO)
 
 lnd_dir = config['LND']['LndDir']
 macaroon_path = config['LND']['MacaroonPath']
