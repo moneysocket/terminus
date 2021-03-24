@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2020 Jarret Dyrbye
+# Copyright (c) 2020 Moneysocket Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php
 
